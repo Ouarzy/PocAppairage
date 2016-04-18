@@ -9,10 +9,10 @@
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition></RowDefinition>
-            <RowDefinition></RowDefinition>
-            <RowDefinition></RowDefinition>
-            <RowDefinition></RowDefinition>
+            <RowDefinition Height="0.1*"></RowDefinition>
+            <RowDefinition Height="Auto"></RowDefinition>
+            <RowDefinition Height="Auto"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
         </Grid.RowDefinitions>
         <Image Source="./erdf.jpg" HorizontalAlignment="Center"></Image>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
@@ -20,8 +20,8 @@
             <TextBlock x:Name="NoSerieConnecteur" ></TextBlock>
         </StackPanel>
         <Button Grid.Row="2" Content="Appairage" Click="AppairageConnecteurOnClick" x:Name="AppairageConnecteur" HorizontalAlignment="Stretch"></Button>
-        <ScrollViewer Grid.Row="3">
-            <TextBlock x:Name="Console" Width="300" Height="100"></TextBlock>
+        <ScrollViewer Grid.Row="3" Height="500" Background="LightGray">
+            <TextBlock x:Name="Console" Width="Auto"></TextBlock>
         </ScrollViewer>
     </Grid>
 </Page>
