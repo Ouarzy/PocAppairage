@@ -106,57 +106,143 @@ namespace PocAppairageUi
         {
             try
             {
-                var deviceName = "Ouarzy Phone";
-                var selector = BluetoothDevice.GetDeviceSelectorFromDeviceName(deviceName);
-                var devices = await DeviceInformation.FindAllAsync(selector);
+                DisplayLine("start scanning...");
+
+                var rfCommAqs = "System.Devices.DevObjectType:=5 AND System.Devices.AepService.ProtocolId:= \"{00030000-0000-1000-8000-00805F9B34FB}\"";
+                var BLEothAqs = "System.Devices.DevObjectType:=5 AND System.Devices.Aep.ProtocolId:=\"{BB7BB05E-5972-42B5-94FC-76EAA7084D49}\"";
+
+                var BToothAqs1 = "System.Devices.DevObjectType:=5";
+                var test = "System.Devices.DevObjectType:=5 AND System.Devices.ProtocolId:= \"{0e261de4-12f0-46e6-91ba428607ccef64}\"";
+
+                //var deviceswatcher = DeviceInformation.CreateWatcher(BToothAqs1);
+                //deviceswatcher.Added += DeviceswatcherOnAdded;
+                //deviceswatcher.Updated += DeviceswatcherOnUpdated;
+                //deviceswatcher.Stopped += DeviceswatcherOnStopped;
+                //deviceswatcher.EnumerationCompleted += DeviceswatcherOnEnumerationCompleted;
+                //deviceswatcher.Start();
+
+                var devices = await DeviceInformation.FindAllAsync(BToothAqs1);
                 if (!devices.Any())
                 {
-                        DisplayLine("No BluetoothDevice found");
+                    DisplayLine("No BluetoothDevice found at all");
                 }
                 else
                 {
                     foreach (var device in devices)
                     {
-                        DisplayLine(device.Id);
-                        DisplayLine(device.Name);
+                        if (string.IsNullOrEmpty(device.Name))
+                        {
+                            DisplayLine("find Accessoire");
+                            DisplayLine(device.Id);
+                            DisplayLine("");
+                        }
+                        else
+                        {
+                            DisplayLine("find " + device.Name);
+                            DisplayLine(device.Id);
+                            DisplayLine("");
+                        }
                     }
                 }
 
-                var selector2 = BluetoothLEDevice.GetDeviceSelectorFromDeviceName("Charge HR");
-                var devices2 = await DeviceInformation.FindAllAsync(selector2);
-                if (!devices2.Any())
-                {
-                    DisplayLine("No BluetoothLEDevice found");
-                }
-                else
-                {
-                    foreach (var device in devices2)
-                    {
-                        DisplayLine(device.Id);
-                        DisplayLine(device.Name);
-                    }
-                }
+                //var selector1 = BluetoothDevice.GetDeviceSelectorFromDeviceName("Ouarzy Phone");
+                //var devices1 = await DeviceInformation.FindAllAsync(selector1);
+                //if (!devices1.Any())
+                //{
+                //    DisplayLine("No Ouarzy found");
+                //}
+                //else
+                //{
+                //    foreach (var device in devices1)
+                //    {
+                //        DisplayLine(device.Kind.ToString());
+                //        DisplayLine(device.Name);
+                //    }
+                //}
 
-                var selector3 = RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
-                var devices3 = await DeviceInformation.FindAllAsync(selector3);
-                if (!devices3.Any())
-                {
-                    DisplayLine("No RfcommDeviceService found");
-                }
-                else
-                {
-                    foreach (var device in devices3)
-                    {
-                        DisplayLine(device.Id);
-                        DisplayLine(device.Name);
-                    }
-                }
+
+
+                //var selector2 = BluetoothLEDevice.GetDeviceSelectorFromDeviceName("Charge HR");
+                //var devices2 = await DeviceInformation.FindAllAsync(selector2);
+                //if (!devices2.Any())
+                //{
+                //    DisplayLine("No BluetoothLEDevice found");
+                //}
+                //else
+                //{
+                //    foreach (var device in devices2)
+                //    {
+                //        DisplayLine(device.Id);
+                //        DisplayLine(device.Name);
+                //    }
+                //}
+
+                //var selector3 = RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
+                //var devices3 = await DeviceInformation.FindAllAsync(selector3);
+                //if (!devices3.Any())
+                //{
+                //    DisplayLine("No RfcommDeviceService found");
+                //}
+                //else
+                //{
+                //    foreach (var device in devices3)
+                //    {
+                //        DisplayLine(device.Id);
+                //        DisplayLine(device.Name);
+                //    }
+                //}
 
             }
             catch (Exception ex)
             {
                 DisplayLine(ex.Message);
             }
+        }
+
+        private async void TryAppairageOnConnecteur(DeviceInformation device)
+        {
+
+            try
+            {
+                if (!_pairing)
+                {
+                    _pairing = true;
+
+                    var customPairing = device.Pairing.Custom;
+
+                    customPairing.PairingRequested += PairingRequestedHandler;
+                    var result = await customPairing.PairAsync(DevicePairingKinds.ProvidePin, DevicePairingProtectionLevel.None);
+                    customPairing.PairingRequested -= PairingRequestedHandler;
+
+                    DisplayLine("pairing: " + result.Status);                    
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayLine(ex.Message);
+                _pairing = false;
+            }
+
+        }
+
+        private void DeviceswatcherOnUpdated(DeviceWatcher sender, DeviceInformationUpdate args)
+        {
+            DisplayLine("watch updated " + args.Id);
+        }
+
+        private void DeviceswatcherOnStopped(DeviceWatcher sender, object args)
+        {
+            DisplayLine("stopped");
+        }
+
+        private void DeviceswatcherOnEnumerationCompleted(DeviceWatcher sender, object args)
+        {
+            DisplayLine("completed");
+        }
+
+        private void DeviceswatcherOnAdded(DeviceWatcher sender, DeviceInformation args)
+        {
+            DisplayLine("watch add " + args.Name);
         }
 
         private async void PairingRequestedHandler(DeviceInformationCustomPairing sender, DevicePairingRequestedEventArgs args)
@@ -368,5 +454,11 @@ namespace PocAppairageUi
         {
             Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => Console.Text += message + "\n");
         }
+
+        private void Display(string message)
+        {
+            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => Console.Text += message);
+        }
+
     }
 }
