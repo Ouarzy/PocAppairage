@@ -28,7 +28,7 @@ namespace PocAppairageUi
     {
         private const string CodePin = "+SWW387NA6QVFOJ8";
         private const string Constructeur = "2A";
-        private const string AdresseMac = "0007802277FF";
+        private const string AdresseMac = "0007802B217E";
         private string _numeroSerie;
 
         private Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceService _service;
@@ -110,9 +110,7 @@ namespace PocAppairageUi
 
                 var rfCommAqs = "System.Devices.DevObjectType:=5 AND System.Devices.AepService.ProtocolId:= \"{00030000-0000-1000-8000-00805F9B34FB}\"";
                 var BLEothAqs = "System.Devices.DevObjectType:=5 AND System.Devices.Aep.ProtocolId:=\"{BB7BB05E-5972-42B5-94FC-76EAA7084D49}\"";
-
                 var BToothAqs1 = "System.Devices.DevObjectType:=5";
-                var test = "System.Devices.DevObjectType:=5 AND System.Devices.ProtocolId:= \"{0e261de4-12f0-46e6-91ba428607ccef64}\"";
 
                 //var deviceswatcher = DeviceInformation.CreateWatcher(BToothAqs1);
                 //deviceswatcher.Added += DeviceswatcherOnAdded;
@@ -121,44 +119,59 @@ namespace PocAppairageUi
                 //deviceswatcher.EnumerationCompleted += DeviceswatcherOnEnumerationCompleted;
                 //deviceswatcher.Start();
 
-                var devices = await DeviceInformation.FindAllAsync(BToothAqs1);
-                if (!devices.Any())
-                {
-                    DisplayLine("No BluetoothDevice found at all");
-                }
-                else
-                {
-                    foreach (var device in devices)
-                    {
-                        if (string.IsNullOrEmpty(device.Name))
-                        {
-                            DisplayLine("find Accessoire");
-                            DisplayLine(device.Id);
-                            DisplayLine("");
-                        }
-                        else
-                        {
-                            DisplayLine("find " + device.Name);
-                            DisplayLine(device.Id);
-                            DisplayLine("");
-                        }
-                    }
-                }
+                //target MAC in decimal, this number corresponds to my device (00:07:80:4b:29:ed)
 
-                //var selector1 = BluetoothDevice.GetDeviceSelectorFromDeviceName("Ouarzy Phone");
-                //var devices1 = await DeviceInformation.FindAllAsync(selector1);
-                //if (!devices1.Any())
+                //AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"
+                //AND System.Devices.Aep.ProtocolId:=\"{E0CBF06C-CD8B-4647-BB8A-263B43F0F974}\"
+
+               var targetMac = ulong.Parse(AdresseMac, System.Globalization.NumberStyles.HexNumber);
+
+                var serialPort = "System.DeviceInterface.Bluetooth.ServiceGuid:=\"{00001101-0000-1000-8000-00805F9B34FB}\" AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"0007802277FF\"";
+                var connecteurFilter = "System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"";
+
+                //var devices = await DeviceInformation.FindAllAsync(BToothAqs1);
+                //if (!devices.Any())
                 //{
-                //    DisplayLine("No Ouarzy found");
+                //    DisplayLine("No BluetoothDevice found at all");
                 //}
                 //else
                 //{
-                //    foreach (var device in devices1)
+                //    foreach (var device in devices)
                 //    {
-                //        DisplayLine(device.Kind.ToString());
-                //        DisplayLine(device.Name);
+                //        if (string.IsNullOrEmpty(device.Name))
+                //        {
+                //            DisplayLine("find Accessoire");
+                //            DisplayLine(device.Id);
+                //            DisplayLine("");
+                //        }
+                //        else
+                //        {
+                //            DisplayLine("find " + device.Name);
+                //            DisplayLine(device.Id);
+                //            DisplayLine("");
+                //        }
                 //    }
                 //}
+
+
+                //RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
+                var selector1 = BluetoothDevice.GetDeviceSelectorFromDeviceName("Linky-C"); 
+                var devices1 = await DeviceInformation.FindAllAsync(selector1);
+                if (!devices1.Any())
+                {
+                    DisplayLine("No Linky found");
+                }
+                else
+                {
+                    foreach (var device in devices1)
+                    {
+                        DisplayLine(device.Kind.ToString());
+                        DisplayLine(device.Name);
+
+                        var linkyInfo = await DeviceInformation.CreateFromIdAsync(device.Id);
+                        TryAppairageOnConnecteur(linkyInfo);
+                    }
+                }
 
 
 
@@ -355,7 +368,8 @@ namespace PocAppairageUi
             DisplayLine("stopped");
         }
 
-        private bool _pairing = true;
+        private bool _pairing = false;
+
         private async void AdvertisementWatcherReceived(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
         {
             DisplayLine("received:");
@@ -384,8 +398,6 @@ namespace PocAppairageUi
                     var bloodPressureService = await GattDeviceService.FromIdAsync(device2.DeviceId);
                     GattCharacteristic bloodPressureCharacteristic =
                         bloodPressureService.GetCharacteristics(GattCharacteristicUuids.BloodPressureFeature)[0];
-
-                    bloodPressureCharacteristic.ValueChanged += bloodPressureChanged;
                 }
             }
             catch (Exception ex)
@@ -393,11 +405,6 @@ namespace PocAppairageUi
                 DisplayLine(ex.Message);
                 _pairing = false;
             }
-        }
-
-        private void bloodPressureChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
-        {
-            DisplayLine("Something");
         }
 
         private void WatcherOnStopped(DeviceWatcher sender, object args)
