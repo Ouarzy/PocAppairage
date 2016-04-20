@@ -37,6 +37,7 @@ namespace PocAppairageUi
         private DataReader dataReaderObject;
         private CancellationTokenSource ReadCancellationTokenSource;
 
+        private DeviceInformation deviceInfo;
 
         public MainPage()
         {
@@ -45,68 +46,13 @@ namespace PocAppairageUi
             _numeroSerie = CodePin + Constructeur + AdresseMac;
             NoSerieConnecteur.Text = _numeroSerie;
 
-            //Advertisement();
-            //InitializeRfcommDeviceService();
-            Task.Run(() => TryCustomPairing());
-            //RunWatcher();
         }
 
-        private void Advertisement()
-        {
-            Task.Run(() =>
-            {
-                var advertisement = new BluetoothLEAdvertisementWatcher();
-                advertisement.Stopped += AdvertisementWatcherStopped;
-                advertisement.Received += AdvertisementWatcherReceived;
-
-                advertisement.Start();
-            });
-        }
-
-        private async void InitializeRfcommDeviceService()
+        private async void TenterListage()
         {
             try
             {
-                var deviceSelector = RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
-                var deviceInfoCollection = await DeviceInformation.FindAllAsync(deviceSelector);
-                var numDevices = deviceInfoCollection.Count();
-
-                // By clearing the backing data, we are effectively clearing the ListBox
-                var _pairedDevices = new List<DeviceInformation>();
-
-                if (numDevices == 0)
-                {
-                    //MessageDialog md = new MessageDialog("No paired devices found", "Title");
-                    //await md.ShowAsync();
-                    DisplayLine("InitializeRfcommDeviceService: No paired devices found.");
-                }
-                else
-                {
-                    // Found paired devices.
-                    foreach (var deviceInfo in deviceInfoCollection)
-                    {
-                        if (!deviceInfo.Name.Contains("Ouarzy"))
-                        {
-                            DisplayLine(deviceInfo.Name);
-                            DisplayLine(deviceInfo.Id);
-                            _pairedDevices.Add(deviceInfo);
-
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                DisplayLine(ex.Message);
-            }
-        }
-
-
-        private async void TryCustomPairing()
-        {
-            try
-            {
-                DisplayLine("start scanning...");
+                DisplayLine("Début du scan...");
 
                 var rfCommAqs = "System.Devices.DevObjectType:=5 AND System.Devices.AepService.ProtocolId:= \"{00030000-0000-1000-8000-00805F9B34FB}\"";
                 var BLEothAqs = "System.Devices.DevObjectType:=5 AND System.Devices.Aep.ProtocolId:=\"{BB7BB05E-5972-42B5-94FC-76EAA7084D49}\"";
@@ -124,86 +70,29 @@ namespace PocAppairageUi
                 //AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"
                 //AND System.Devices.Aep.ProtocolId:=\"{E0CBF06C-CD8B-4647-BB8A-263B43F0F974}\"
 
-               var targetMac = ulong.Parse(AdresseMac, System.Globalization.NumberStyles.HexNumber);
+                var targetMac = ulong.Parse(AdresseMac, System.Globalization.NumberStyles.HexNumber);
 
                 var serialPort = "System.DeviceInterface.Bluetooth.ServiceGuid:=\"{00001101-0000-1000-8000-00805F9B34FB}\" AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"0007802277FF\"";
                 var connecteurFilter = "System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"";
 
-                //var devices = await DeviceInformation.FindAllAsync(BToothAqs1);
-                //if (!devices.Any())
-                //{
-                //    DisplayLine("No BluetoothDevice found at all");
-                //}
-                //else
-                //{
-                //    foreach (var device in devices)
-                //    {
-                //        if (string.IsNullOrEmpty(device.Name))
-                //        {
-                //            DisplayLine("find Accessoire");
-                //            DisplayLine(device.Id);
-                //            DisplayLine("");
-                //        }
-                //        else
-                //        {
-                //            DisplayLine("find " + device.Name);
-                //            DisplayLine(device.Id);
-                //            DisplayLine("");
-                //        }
-                //    }
-                //}
 
 
-                //RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
-                var selector1 = BluetoothDevice.GetDeviceSelectorFromDeviceName("Linky-C"); 
+                var selector1 = BluetoothDevice.GetDeviceSelectorFromDeviceName("Linky-C");
                 var devices1 = await DeviceInformation.FindAllAsync(selector1);
                 if (!devices1.Any())
                 {
-                    DisplayLine("No Linky found");
+                    DisplayLine("Pas de connecteur trouvé");
                 }
                 else
                 {
                     foreach (var device in devices1)
                     {
-                        DisplayLine(device.Kind.ToString());
-                        DisplayLine(device.Name);
+                        DisplayLine("Trouvé : " + device.Name + "(type : " + device.Kind.ToString() + ")");
 
-                        var linkyInfo = await DeviceInformation.CreateFromIdAsync(device.Id);
-                        TryAppairageOnConnecteur(linkyInfo);
+                        deviceInfo = await DeviceInformation.CreateFromIdAsync(device.Id);
                     }
                 }
 
-
-
-                //var selector2 = BluetoothLEDevice.GetDeviceSelectorFromDeviceName("Charge HR");
-                //var devices2 = await DeviceInformation.FindAllAsync(selector2);
-                //if (!devices2.Any())
-                //{
-                //    DisplayLine("No BluetoothLEDevice found");
-                //}
-                //else
-                //{
-                //    foreach (var device in devices2)
-                //    {
-                //        DisplayLine(device.Id);
-                //        DisplayLine(device.Name);
-                //    }
-                //}
-
-                //var selector3 = RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
-                //var devices3 = await DeviceInformation.FindAllAsync(selector3);
-                //if (!devices3.Any())
-                //{
-                //    DisplayLine("No RfcommDeviceService found");
-                //}
-                //else
-                //{
-                //    foreach (var device in devices3)
-                //    {
-                //        DisplayLine(device.Id);
-                //        DisplayLine(device.Name);
-                //    }
-                //}
 
             }
             catch (Exception ex)
@@ -212,7 +101,9 @@ namespace PocAppairageUi
             }
         }
 
-        private async void TryAppairageOnConnecteur(DeviceInformation device)
+        private bool _pairing = false;
+
+        private async void TenterAppairage(DeviceInformation device)
         {
 
             try
@@ -227,7 +118,7 @@ namespace PocAppairageUi
                     var result = await customPairing.PairAsync(DevicePairingKinds.ProvidePin, DevicePairingProtectionLevel.None);
                     customPairing.PairingRequested -= PairingRequestedHandler;
 
-                    DisplayLine("pairing: " + result.Status);                    
+                    DisplayLine("Résultat de l'appairage : " + result.Status);
                 }
             }
             catch (Exception ex)
@@ -238,24 +129,20 @@ namespace PocAppairageUi
 
         }
 
-        private void DeviceswatcherOnUpdated(DeviceWatcher sender, DeviceInformationUpdate args)
+        private async void TenterCommuniquage(DeviceInformation device)
         {
-            DisplayLine("watch updated " + args.Id);
-        }
-
-        private void DeviceswatcherOnStopped(DeviceWatcher sender, object args)
-        {
-            DisplayLine("stopped");
-        }
-
-        private void DeviceswatcherOnEnumerationCompleted(DeviceWatcher sender, object args)
-        {
-            DisplayLine("completed");
-        }
-
-        private void DeviceswatcherOnAdded(DeviceWatcher sender, DeviceInformation args)
-        {
-            DisplayLine("watch add " + args.Name);
+            try
+            {
+                //success
+                _service = await RfcommDeviceService.FromIdAsync(device.Id);
+                _socket = new StreamSocket();
+                await _socket.ConnectAsync(_service.ConnectionHostName, _service.ConnectionServiceName);
+            }
+            catch (Exception ex)
+            {
+                DisplayLine(ex.Message);
+                _pairing = false;
+            }
         }
 
         private async void PairingRequestedHandler(DeviceInformationCustomPairing sender, DevicePairingRequestedEventArgs args)
@@ -311,161 +198,28 @@ namespace PocAppairageUi
             }
         }
 
-        private void RunWatcher()
+        private void AppairerOnClick(object sender, RoutedEventArgs e)
         {
-
-            var watcher = DeviceInformation.CreateWatcher();
-
-            var handlerAdded = new TypedEventHandler<DeviceWatcher, DeviceInformation>(async (watch, deviceInfo) =>
+            if (deviceInfo != null)
             {
-                // Since we have the collection databound to a UI element, we need to update the collection on the UI thread.
-                await Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
-                {
-                    DisplayLine("Devices found");
-                    DisplayLine(deviceInfo.Id);
-                    DisplayLine(deviceInfo.Name);
-                });
-            });
-
-            var handlerUpdated = new TypedEventHandler<DeviceWatcher, DeviceInformationUpdate>(async (watch, deviceInfo) =>
-            {
-                // Since we have the collection databound to a UI element, we need to update the collection on the UI thread.
-                await Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
-                {
-                    DisplayLine("Devices update");
-                    DisplayLine(deviceInfo.Id);
-                    DisplayLine(deviceInfo.Kind.ToString());
-                });
-            });
-
-
-            watcher.Added += handlerAdded;
-            watcher.Updated += handlerUpdated;
-            watcher.Stopped += WatcherOnStopped;
-            watcher.Start();
-        }
-
-        private void InitWithBleWatcher()
-        {
-            var advertisementWatcher = new BluetoothLEAdvertisementWatcher
-            {
-                //SignalStrengthFilter = new BluetoothSignalStrengthFilter
-                //{
-                //    InRangeThresholdInDBm = -100,
-                //    OutOfRangeThresholdInDBm = -102,                    
-                //}
-            };
-            advertisementWatcher.ScanningMode = BluetoothLEScanningMode.Active;
-
-            advertisementWatcher.Stopped += AdvertisementWatcherStopped;
-            advertisementWatcher.Received += AdvertisementWatcherReceived;
-
-            advertisementWatcher.Start();
-        }
-
-        private void AdvertisementWatcherStopped(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementWatcherStoppedEventArgs args)
-        {
-            DisplayLine("stopped");
-        }
-
-        private bool _pairing = false;
-
-        private async void AdvertisementWatcherReceived(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
-        {
-            DisplayLine("received:");
-
-            try
-            {
-                DisplayLine(args.BluetoothAddress.ToString());
-                var device = await BluetoothDevice.FromBluetoothAddressAsync(args.BluetoothAddress);
-                DisplayLine("nor: " + device.Name);
-
-                if (!_pairing)
-                {
-                    _pairing = true;
-
-                    var device2 = await BluetoothLEDevice.FromBluetoothAddressAsync(args.BluetoothAddress);
-                    DisplayLine("ble: " + device2.Name);
-
-                    var customPairing = device2.DeviceInformation.Pairing.Custom;
-
-                    customPairing.PairingRequested += PairingRequestedHandler;
-                    var result = await customPairing.PairAsync(DevicePairingKinds.ProvidePin, DevicePairingProtectionLevel.None);
-                    customPairing.PairingRequested -= PairingRequestedHandler;
-
-                    DisplayLine("pairing: " + result.Status);
-
-                    var bloodPressureService = await GattDeviceService.FromIdAsync(device2.DeviceId);
-                    GattCharacteristic bloodPressureCharacteristic =
-                        bloodPressureService.GetCharacteristics(GattCharacteristicUuids.BloodPressureFeature)[0];
-                }
-            }
-            catch (Exception ex)
-            {
-                DisplayLine(ex.Message);
-                _pairing = false;
+                Task.Run(() => TenterAppairage(deviceInfo));
             }
         }
 
-        private void WatcherOnStopped(DeviceWatcher sender, object args)
+        private void ListerOnClick(object sender, RoutedEventArgs e)
         {
-            DisplayLine("stopped");
+            Task.Run(() => TenterListage());
         }
-
-
-        private IBackgroundTrigger TryFindDevices()
+        private void CommuniquerOnClick(object sender, RoutedEventArgs e)
         {
-            var rfcommConnectionTrigger = new RfcommConnectionTrigger();
-            return rfcommConnectionTrigger;
-        }
-
-        private void AppairageConnecteurOnClick(object sender, RoutedEventArgs e)
-        {
-        }
-
-        private async void InitWithSelector()
-        {
-            try
+            if (deviceInfo != null)
             {
-                var connecteur = await BluetoothDevice.FromBluetoothAddressAsync(4567890);
-
-                DisplayLine(connecteur.DeviceId);
-                DisplayLine(connecteur.ConnectionStatus.ToString());
+                Task.Run(() => TenterCommuniquage(deviceInfo));
             }
-            catch (Exception ex)
-            {
-                DisplayLine(ex.Message);
-            }
-
-
-            //string selector = BluetoothDevice.GetDeviceSelector();
-            //var devices = BluetoothDevice.GetDeviceSelector(selector);
-            //foreach (var device in devices)
-            //{
-            //    var bluetoothDevice = await BluetoothDevice.FromIdAsync(device.Id);
-            //    if (bluetoothDevice != null)
-            //    {
-            //        DisplayLine(bluetoothDevice.BluetoothAddress.ToString());
-            //    }
-
-            //    DisplayLine(device.Id);
-
-            //    foreach (var property in device.Properties)
-            //    {
-            //        DisplayLine("   " + property.Key + " " + property.Value);
-            //    }
-            //}
         }
-
         private void DisplayLine(string message)
         {
             Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => Console.Text += message + "\n");
         }
-
-        private void Display(string message)
-        {
-            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => Console.Text += message);
-        }
-
     }
 }

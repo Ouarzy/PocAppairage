@@ -9,18 +9,23 @@
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="0.1*"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="50*"></RowDefinition>
+            <RowDefinition Height="30*"/>
+            <RowDefinition Height="50*"></RowDefinition>
+            <RowDefinition Height="50*"></RowDefinition>
+            <RowDefinition Height="50*"></RowDefinition>
+            <RowDefinition Height="50*"/>
+            <RowDefinition Height="424*"/>
         </Grid.RowDefinitions>
-        <Image Source="./erdf.jpg" HorizontalAlignment="Center"></Image>
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
+        <Image Source="./erdf.jpg" HorizontalAlignment="Center" Margin="156,0,154,0" Grid.RowSpan="1" Width="50"></Image>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="101,0" Grid.Row="1" Width="158">
             <TextBlock Text="N° de série  connecteur: "></TextBlock>
             <TextBlock x:Name="NoSerieConnecteur" ></TextBlock>
         </StackPanel>
-        <Button Grid.Row="2" Content="Appairage" Click="AppairageConnecteurOnClick" x:Name="AppairageConnecteur" HorizontalAlignment="Stretch"></Button>
-        <ScrollViewer Grid.Row="3" Height="500" Background="LightGray">
+        <Button Grid.Row="3" Content="Appairer" Click="AppairerOnClick" x:Name="btAppairer" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5" Grid.RowSpan="1" ></Button>
+        <Button Grid.Row="2" Content="Lister" Click="ListerOnClick" x:Name="btLister" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5" Grid.RowSpan="1" ></Button>
+        <Button Grid.Row="4" Content="Communiquer" Click="CommuniquerOnClick" x:Name="btCommuniquer" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5" Grid.RowSpan="1" ></Button>
+        <ScrollViewer Grid.Row="6" Background="LightGray" Margin="0,31,0,93">
             <TextBlock x:Name="Console" Width="Auto"></TextBlock>
         </ScrollViewer>
     </Grid>
