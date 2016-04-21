@@ -108,7 +108,6 @@ namespace PocAppairageUi
 
         private async void TenterAppairage(DeviceInformation device)
         {
-
             try
             {
                 DisplayLine("Début de l'appairage...");
@@ -125,37 +124,25 @@ namespace PocAppairageUi
             {
                 DisplayLine(ex.Message);
             }
-
         }
 
-        private async void TenterCommuniquage(DeviceInformation bluetoothDeviceInfo)
+        private async void TenterCommuniquage()
         {
-
             try
             {
-
                 DisplayLine("Série : ");
-                var serialDevices = await DeviceInformation.FindAllAsync(SerialDevice.GetDeviceSelector());
-                DeviceInformation serialDeviceInfo = null;
-                foreach (DeviceInformation serialDeviceInfoBoucle in serialDevices)
+                var selector = RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
+                foreach (DeviceInformation serialDeviceInfoBoucle in await DeviceInformation.FindAllAsync(selector))
                 {
                     if (serialDeviceInfoBoucle.Name.Equals("Linky-C"))
                     {
                         DisplayLine("Trouvé : " + serialDeviceInfoBoucle.Name + " (type : " + serialDeviceInfoBoucle.Kind.ToString() + ")");
-                        serialDeviceInfo = serialDeviceInfoBoucle;
+
+                        DisplayLine("serialcommDeviceInfo : " + serialDeviceInfoBoucle.Id);
+
+                        await TryToCommunicate(serialDeviceInfoBoucle, "serial");
                     }
                 }
-                if (serialDeviceInfo != null)
-                {
-                    DisplayLine("serialcommDeviceInfo : " + serialDeviceInfo.Id);
-
-                    await TryToCommunicate(serialDeviceInfo, "serial");
-                }
-                else
-                {
-                    DisplayLine("Pas de device supportant le port série trouvé. ");
-                }
-
             }
             catch (Exception ex)
             {
@@ -170,44 +157,72 @@ namespace PocAppairageUi
                 if (info != null)
                 {
                     DisplayLine("Tentative de communication " + type + "...");
-                    SerialDevice device = await SerialDevice.FromIdAsync(info.Id);
-                    if (device != null)
+
+                    var rfCommInfo = await RfcommDeviceService.FromIdAsync(info.Id);
+
+                    using (StreamSocket streamSocket = new StreamSocket())
                     {
-                        DisplayLine("Port  " + type + " ouvert");
-                        device.BaudRate = 115200;
-                        device.Parity = SerialParity.None;
-                        device.StopBits = SerialStopBitCount.One;
-                        device.DataBits = 8;
-                        device.Handshake = SerialHandshake.None;
-                        device.IsRequestToSendEnabled = false;
-                        device.IsDataTerminalReadyEnabled = false;
-                        device.ReadTimeout = TimeSpan.FromMilliseconds(5000);
-                        device.WriteTimeout = TimeSpan.FromMilliseconds(1000);
-                        IInputStream inputStream = device.InputStream;
-                        IOutputStream outputStream = device.OutputStream;
+                        await streamSocket.ConnectAsync(rfCommInfo.ConnectionHostName, rfCommInfo.ConnectionServiceName, SocketProtectionLevel.BluetoothEncryptionAllowNullAuthentication);
 
                         byte[] bytesOut = { 0x00, 0x03, 0xF3, 0xB5, 0x40 };
 
-                        await outputStream.WriteAsync(bytesOut.AsBuffer());
-                        // await outputStream.FlushAsync();
+                        var writer = new DataWriter(streamSocket.OutputStream);
+                        var reader = new DataReader(streamSocket.InputStream);
 
-                        DisplayLine("Envoyé");
+                        writer.WriteBytes(bytesOut);
+                        await writer.StoreAsync();
 
-                        IBuffer inBuffer = new Buffer(1000);
-                        await inputStream.ReadAsync(inBuffer, 1000, InputStreamOptions.ReadAhead);
+                        // Get length
+                        byte[] bytesLength = new byte[2];
+                        await reader.LoadAsync(2);
+                        reader.ReadBytes(bytesLength);
 
-                        byte[] bytesIn = inBuffer.ToArray();
-                        string s = "Reçu : ";
-                        foreach (byte b in bytesIn)
-                        {
-                            s += b.ToString("X2") + " ";
-                        }
-                        DisplayLine(s);
+                        var length = (uint)BitConverter.ToUInt16(bytesLength.Reverse().ToArray(), 0);
+                        byte[] bytesIn = new byte[length];
+                        await reader.LoadAsync(length);
+                        reader.ReadBytes(bytesIn);
+
+                        DisplayLine(bytesIn.Aggregate("", (val, b) => val + b.ToString("X2")));
                     }
-                    else
-                    {
-                        DisplayLine(type + " device is null.");
-                    }
+
+                    //SerialDevice device = await SerialDevice.FromIdAsync(info.Id);
+                    //if (device != null)
+                    //{
+                    //    DisplayLine("Port  " + type + " ouvert");
+                    //    device.Parity = SerialParity.None;
+                    //    device.BaudRate = 115200;
+                    //    device.StopBits = SerialStopBitCount.One;
+                    //    device.DataBits = 8;
+                    //    device.Handshake = SerialHandshake.None;
+                    //    device.IsRequestToSendEnabled = false;
+                    //    device.IsDataTerminalReadyEnabled = false;
+                    //    device.ReadTimeout = TimeSpan.FromMilliseconds(5000);
+                    //    device.WriteTimeout = TimeSpan.FromMilliseconds(1000);
+                    //    IInputStream inputStream = device.InputStream;
+                    //    IOutputStream outputStream = device.OutputStream;
+
+                    //    byte[] bytesOut = { 0x00, 0x03, 0xF3, 0xB5, 0x40 };
+
+                    //    await outputStream.WriteAsync(bytesOut.AsBuffer());
+                    //    // await outputStream.FlushAsync();
+
+                    //    DisplayLine("Envoyé");
+
+                    //    IBuffer inBuffer = new Buffer(1000);
+                    //    await inputStream.ReadAsync(inBuffer, 1000, InputStreamOptions.ReadAhead);
+
+                    //    byte[] bytesIn = inBuffer.ToArray();
+                    //    string s = "Reçu : ";
+                    //    foreach (byte b in bytesIn)
+                    //    {
+                    //        s += b.ToString("X2") + " ";
+                    //    }
+                    //    DisplayLine(s);
+                    //}
+                    //else
+                    //{
+                    //    DisplayLine(type + " device is null.");
+                    //}
                 }
             }
             catch (Exception e)
@@ -284,7 +299,7 @@ namespace PocAppairageUi
         }
         private void CommuniquerOnClick(object sender, RoutedEventArgs e)
         {
-            Task.Run(() => TenterCommuniquage(deviceInfo));
+            Task.Run(() => TenterCommuniquage());
         }
         private void DisplayLine(string message)
         {

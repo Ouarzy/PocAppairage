@@ -24,15 +24,16 @@
   </Applications>
   <Capabilities>
     <Capability Name="internetClient" />
+    <Capability Name="internetClientServer" />
     <DeviceCapability Name="bluetooth" />
     <DeviceCapability Name="bluetooth.rfcomm">
       <Device Id="any">
-        <Function Type="name:serialPort"/>
+        <Function Type="name:serialPort" />
       </Device>
     </DeviceCapability>
     <DeviceCapability Name="serialcommunication">
       <Device Id="any">
-        <Function Type="name:serialPort"/>
+        <Function Type="name:serialPort" />
       </Device>
     </DeviceCapability>
   </Capabilities>
