@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -129,27 +130,9 @@ namespace PocAppairageUi
 
         private async void TenterCommuniquage(DeviceInformation bluetoothDeviceInfo)
         {
-            /* SerialDevice serialDevice = await SerialDevice.FromIdAsync(bluetoothDeviceInfo.Id);
-
-             if (bluetoothDeviceInfo != null)
-             {
-             }*/
 
             try
             {
-                //success
-                DisplayLine("RfComm supportant le série : ");
-                var rfcommDevices = await DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort));
-                DeviceInformation rfcommDeviceInfo = null;
-                foreach (DeviceInformation rfcommDeviceInfoBoucle in rfcommDevices)
-                {
-                    if (rfcommDeviceInfoBoucle.Name.Equals("Linky-C"))
-                    {
-                        DisplayLine("Trouvé : " + rfcommDeviceInfoBoucle.Name + " (type : " +
-                                    rfcommDeviceInfoBoucle.Kind.ToString() + ")");
-                        rfcommDeviceInfo = rfcommDeviceInfoBoucle;
-                    }
-                }
 
                 DisplayLine("Série : ");
                 var serialDevices = await DeviceInformation.FindAllAsync(SerialDevice.GetDeviceSelector());
@@ -162,14 +145,16 @@ namespace PocAppairageUi
                         serialDeviceInfo = serialDeviceInfoBoucle;
                     }
                 }
+                if (serialDeviceInfo != null)
+                {
+                    DisplayLine("serialcommDeviceInfo : " + serialDeviceInfo.Id);
 
-                DisplayLine("bluetoothDeviceInfo : " + bluetoothDeviceInfo.Id);
-                DisplayLine("rfcommDeviceInfo : " + rfcommDeviceInfo.Id);
-                DisplayLine("serialcommDeviceInfo : " + serialDeviceInfo.Id);
-
-                //await TryToCommunicate(bluetoothDeviceInfo, "bluetooth");
-               // await TryToCommunicate(rfcommDeviceInfo, "rfcomm");
-                await TryToCommunicate(serialDeviceInfo, "serial");
+                    await TryToCommunicate(serialDeviceInfo, "serial");
+                }
+                else
+                {
+                    DisplayLine("Pas de device supportant le port série trouvé. ");
+                }
 
             }
             catch (Exception ex)
@@ -193,23 +178,49 @@ namespace PocAppairageUi
                         device.Parity = SerialParity.None;
                         device.StopBits = SerialStopBitCount.One;
                         device.DataBits = 8;
+                        device.Handshake = SerialHandshake.None;
+                        device.IsRequestToSendEnabled = false;
+                        device.IsDataTerminalReadyEnabled = false;
+                        device.ReadTimeout = TimeSpan.FromMilliseconds(5000);
+                        device.WriteTimeout = TimeSpan.FromMilliseconds(1000);
                         IInputStream inputStream = device.InputStream;
                         IOutputStream outputStream = device.OutputStream;
 
-                        using (var streamWriter = new StreamWriter(outputStream.AsStreamForWrite()))
-                        {
-                            byte[] bytes = { 0x00, 0x03, 0xF8, 0x72, 0x01 };
-                            char[] chars = Encoding.ASCII.GetChars(bytes);
-                            await streamWriter.WriteAsync(chars);
-                        }
+                        byte[] bytesOut = { 0x00, 0x03, 0xF3, 0xB5, 0x40 };
+
+                        await outputStream.WriteAsync(bytesOut.AsBuffer());
+                        // await outputStream.FlushAsync();
+
                         DisplayLine("Envoyé");
-                        await Task.Delay(1000);
-                        using (var streamReader = new StreamReader(inputStream.AsStreamForRead()))
+
+                        IBuffer inBuffer = new Buffer(1000);
+                        await inputStream.ReadAsync(inBuffer, 1000, InputStreamOptions.ReadAhead);
+
+                        byte[] bytesIn = inBuffer.ToArray();
+                        string s = "Reçu : ";
+                        foreach (byte b in bytesIn)
                         {
-                            string result = await streamReader.ReadToEndAsync();
-                            byte[] bytes = Encoding.ASCII.GetBytes(result);
-                            DisplayLine(bytes.ToString());
+                            s += b.ToString("X2") + " ";
                         }
+                        DisplayLine(s);
+
+                        /*
+                        var streamWriter = new StreamWriter(outputStream.AsStreamForWrite());
+
+
+                        char[] chars = Encoding.ASCII.GetChars(bytesOut);
+                        streamWriter.Write(chars);
+
+                        DisplayLine("Envoyé");
+
+                        // await Task.Delay(1000);
+                        var streamReader = new StreamReader(inputStream.AsStreamForRead());
+                        string result = await streamReader.ReadToEndAsync();
+                        byte[] bytesIn = Encoding.ASCII.GetBytes(result);
+                        DisplayLine(bytesIn.ToString());
+
+    */
+                        DisplayLine("Fini");
                     }
                     else
                     {
@@ -290,10 +301,7 @@ namespace PocAppairageUi
         }
         private void CommuniquerOnClick(object sender, RoutedEventArgs e)
         {
-            if (true)//bluetoothDeviceInfo != null)
-            {
-                Task.Run(() => TenterCommuniquage(deviceInfo));
-            }
+            Task.Run(() => TenterCommuniquage(deviceInfo));
         }
         private void DisplayLine(string message)
         {
