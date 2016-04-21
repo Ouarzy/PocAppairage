@@ -203,24 +203,6 @@ namespace PocAppairageUi
                             s += b.ToString("X2") + " ";
                         }
                         DisplayLine(s);
-
-                        /*
-                        var streamWriter = new StreamWriter(outputStream.AsStreamForWrite());
-
-
-                        char[] chars = Encoding.ASCII.GetChars(bytesOut);
-                        streamWriter.Write(chars);
-
-                        DisplayLine("Envoyé");
-
-                        // await Task.Delay(1000);
-                        var streamReader = new StreamReader(inputStream.AsStreamForRead());
-                        string result = await streamReader.ReadToEndAsync();
-                        byte[] bytesIn = Encoding.ASCII.GetBytes(result);
-                        DisplayLine(bytesIn.ToString());
-
-    */
-                        DisplayLine("Fini");
                     }
                     else
                     {
@@ -232,6 +214,7 @@ namespace PocAppairageUi
             {
                 DisplayLine(type + " communication failed : " + e.Message);
             }
+            DisplayLine("Fini");
         }
 
         private async void PairingRequestedHandler(DeviceInformationCustomPairing sender, DevicePairingRequestedEventArgs args)
