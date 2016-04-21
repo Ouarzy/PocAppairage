@@ -167,8 +167,8 @@ namespace PocAppairageUi
                 DisplayLine("rfcommDeviceInfo : " + rfcommDeviceInfo.Id);
                 DisplayLine("serialcommDeviceInfo : " + serialDeviceInfo.Id);
 
-                await TryToCommunicate(bluetoothDeviceInfo, "bluetooth");
-                await TryToCommunicate(rfcommDeviceInfo, "rfcomm");
+                //await TryToCommunicate(bluetoothDeviceInfo, "bluetooth");
+               // await TryToCommunicate(rfcommDeviceInfo, "rfcomm");
                 await TryToCommunicate(serialDeviceInfo, "serial");
 
             }
