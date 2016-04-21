@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Background;
@@ -10,13 +12,16 @@ using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Devices.Enumeration;
+using Windows.Devices.SerialCommunication;
 using Windows.Foundation;
+using Windows.Media.MediaProperties;
 using Windows.Networking;
 using Windows.Networking.Sockets;
 using Windows.Storage.Streams;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Buffer = Windows.Storage.Streams.Buffer;
 
 namespace PocAppairageUi
 {
@@ -31,7 +36,6 @@ namespace PocAppairageUi
         private const string AdresseMac = "0007802B217E";
         private string _numeroSerie;
 
-        private Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceService _service;
         private StreamSocket _socket;
         private DataWriter dataWriterObject;
         private DataReader dataReaderObject;
@@ -65,7 +69,7 @@ namespace PocAppairageUi
                 //deviceswatcher.EnumerationCompleted += DeviceswatcherOnEnumerationCompleted;
                 //deviceswatcher.Start();
 
-                //target MAC in decimal, this number corresponds to my device (00:07:80:4b:29:ed)
+                //target MAC in decimal, this number corresponds to my bluetoothDeviceInfo (00:07:80:4b:29:ed)
 
                 //AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"
                 //AND System.Devices.Aep.ProtocolId:=\"{E0CBF06C-CD8B-4647-BB8A-263B43F0F974}\"
@@ -87,61 +91,135 @@ namespace PocAppairageUi
                 {
                     foreach (var device in devices1)
                     {
-                        DisplayLine("Trouvé : " + device.Name + "(type : " + device.Kind.ToString() + ")");
+                        DisplayLine("Trouvé : " + device.Name + " (type : " + device.Kind.ToString() + ")");
 
                         deviceInfo = await DeviceInformation.CreateFromIdAsync(device.Id);
                     }
                 }
-
+                DisplayLine("Fin du scan");
 
             }
             catch (Exception ex)
             {
-                DisplayLine(ex.Message);
+                DisplayLine("Erreur lors du scan : " + ex.Message);
             }
         }
-
-        private bool _pairing = false;
 
         private async void TenterAppairage(DeviceInformation device)
         {
 
             try
             {
-                if (!_pairing)
-                {
-                    _pairing = true;
+                DisplayLine("Début de l'appairage...");
 
-                    var customPairing = device.Pairing.Custom;
+                var customPairing = device.Pairing.Custom;
 
-                    customPairing.PairingRequested += PairingRequestedHandler;
-                    var result = await customPairing.PairAsync(DevicePairingKinds.ProvidePin, DevicePairingProtectionLevel.None);
-                    customPairing.PairingRequested -= PairingRequestedHandler;
+                customPairing.PairingRequested += PairingRequestedHandler;
+                var result = await customPairing.PairAsync(DevicePairingKinds.ProvidePin, DevicePairingProtectionLevel.None);
+                customPairing.PairingRequested -= PairingRequestedHandler;
 
-                    DisplayLine("Résultat de l'appairage : " + result.Status);
-                }
+                DisplayLine("Résultat de l'appairage : " + result.Status);
             }
             catch (Exception ex)
             {
                 DisplayLine(ex.Message);
-                _pairing = false;
             }
 
         }
 
-        private async void TenterCommuniquage(DeviceInformation device)
+        private async void TenterCommuniquage(DeviceInformation bluetoothDeviceInfo)
         {
+            /* SerialDevice serialDevice = await SerialDevice.FromIdAsync(bluetoothDeviceInfo.Id);
+
+             if (bluetoothDeviceInfo != null)
+             {
+             }*/
+
             try
             {
                 //success
-                _service = await RfcommDeviceService.FromIdAsync(device.Id);
-                _socket = new StreamSocket();
-                await _socket.ConnectAsync(_service.ConnectionHostName, _service.ConnectionServiceName);
+                DisplayLine("RfComm supportant le série : ");
+                var rfcommDevices = await DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort));
+                DeviceInformation rfcommDeviceInfo = null;
+                foreach (DeviceInformation rfcommDeviceInfoBoucle in rfcommDevices)
+                {
+                    if (rfcommDeviceInfoBoucle.Name.Equals("Linky-C"))
+                    {
+                        DisplayLine("Trouvé : " + rfcommDeviceInfoBoucle.Name + " (type : " +
+                                    rfcommDeviceInfoBoucle.Kind.ToString() + ")");
+                        rfcommDeviceInfo = rfcommDeviceInfoBoucle;
+                    }
+                }
+
+                DisplayLine("Série : ");
+                var serialDevices = await DeviceInformation.FindAllAsync(SerialDevice.GetDeviceSelector());
+                DeviceInformation serialDeviceInfo = null;
+                foreach (DeviceInformation serialDeviceInfoBoucle in serialDevices)
+                {
+                    if (serialDeviceInfoBoucle.Name.Equals("Linky-C"))
+                    {
+                        DisplayLine("Trouvé : " + serialDeviceInfoBoucle.Name + " (type : " + serialDeviceInfoBoucle.Kind.ToString() + ")");
+                        serialDeviceInfo = serialDeviceInfoBoucle;
+                    }
+                }
+
+                DisplayLine("bluetoothDeviceInfo : " + bluetoothDeviceInfo.Id);
+                DisplayLine("rfcommDeviceInfo : " + rfcommDeviceInfo.Id);
+                DisplayLine("serialcommDeviceInfo : " + serialDeviceInfo.Id);
+
+                await TryToCommunicate(bluetoothDeviceInfo, "bluetooth");
+                await TryToCommunicate(rfcommDeviceInfo, "rfcomm");
+                await TryToCommunicate(serialDeviceInfo, "serial");
+
             }
             catch (Exception ex)
             {
                 DisplayLine(ex.Message);
-                _pairing = false;
+            }
+        }
+
+        private async Task TryToCommunicate(DeviceInformation info, string type)
+        {
+            try
+            {
+                if (info != null)
+                {
+                    DisplayLine("Tentative de communication " + type + "...");
+                    SerialDevice device = await SerialDevice.FromIdAsync(info.Id);
+                    if (device != null)
+                    {
+                        DisplayLine("Port  " + type + " ouvert");
+                        device.BaudRate = 115200;
+                        device.Parity = SerialParity.None;
+                        device.StopBits = SerialStopBitCount.One;
+                        device.DataBits = 8;
+                        IInputStream inputStream = device.InputStream;
+                        IOutputStream outputStream = device.OutputStream;
+
+                        using (var streamWriter = new StreamWriter(outputStream.AsStreamForWrite()))
+                        {
+                            byte[] bytes = { 0x00, 0x03, 0xF8, 0x72, 0x01 };
+                            char[] chars = Encoding.ASCII.GetChars(bytes);
+                            await streamWriter.WriteAsync(chars);
+                        }
+                        DisplayLine("Envoyé");
+                        await Task.Delay(1000);
+                        using (var streamReader = new StreamReader(inputStream.AsStreamForRead()))
+                        {
+                            string result = await streamReader.ReadToEndAsync();
+                            byte[] bytes = Encoding.ASCII.GetBytes(result);
+                            DisplayLine(bytes.ToString());
+                        }
+                    }
+                    else
+                    {
+                        DisplayLine(type + " device is null.");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DisplayLine(type + " communication failed : " + e.Message);
             }
         }
 
@@ -158,21 +236,21 @@ namespace PocAppairageUi
 
                 case DevicePairingKinds.DisplayPin:
                     // We just show the PIN on this side. The ceremony is actually completed when the user enters the PIN
-                    // on the target device. We automatically except here since we can't really "cancel" the operation
+                    // on the target bluetoothDeviceInfo. We automatically except here since we can't really "cancel" the operation
                     // from this side.
                     args.Accept();
 
                     // No need for a deferral since we don't need any decision from the user
                     await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                     {
-                        DisplayLine("Please enter this PIN on the device you are pairing with: " + args.Pin);
+                        DisplayLine("Please enter this PIN on the bluetoothDeviceInfo you are pairing with: " + args.Pin);
 
                     });
                     break;
 
                 case DevicePairingKinds.ProvidePin:
-                    // A PIN may be shown on the target device and the user needs to enter the matching PIN on 
-                    // this Windows device. Get a deferral so we can perform the async request to the user.
+                    // A PIN may be shown on the target bluetoothDeviceInfo and the user needs to enter the matching PIN on 
+                    // this Windows bluetoothDeviceInfo. Get a deferral so we can perform the async request to the user.
                     var collectPinDeferral = args.GetDeferral();
 
                     await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
@@ -184,7 +262,7 @@ namespace PocAppairageUi
 
                 case DevicePairingKinds.ConfirmPinMatch:
                     // We show the PIN here and the user responds with whether the PIN matches what they see
-                    // on the target device. Response comes back and we set it on the PinComparePairingRequestedData
+                    // on the target bluetoothDeviceInfo. Response comes back and we set it on the PinComparePairingRequestedData
                     // then complete the deferral.
                     var displayMessageDeferral = args.GetDeferral();
 
@@ -212,7 +290,7 @@ namespace PocAppairageUi
         }
         private void CommuniquerOnClick(object sender, RoutedEventArgs e)
         {
-            if (deviceInfo != null)
+            if (true)//bluetoothDeviceInfo != null)
             {
                 Task.Run(() => TenterCommuniquage(deviceInfo));
             }
