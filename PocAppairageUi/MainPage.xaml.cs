@@ -1,28 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.Background;
 using Windows.Devices.Bluetooth;
-using Windows.Devices.Bluetooth.Advertisement;
-using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Devices.Enumeration;
-using Windows.Devices.SerialCommunication;
-using Windows.Foundation;
-using Windows.Media.MediaProperties;
-using Windows.Networking;
 using Windows.Networking.Sockets;
 using Windows.Storage.Streams;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Buffer = Windows.Storage.Streams.Buffer;
 
 namespace PocAppairageUi
 {
@@ -32,9 +19,9 @@ namespace PocAppairageUi
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private const string CodePin = "+SWW387NA6QVFOJ8";
+        private const string CodePin = "L04-UJEX1NPXMUKG";
         private const string Constructeur = "2A";
-        private const string AdresseMac = "0007802B217E";
+        private const string AdresseMac = "000780227849";
         private string _numeroSerie;
 
         private StreamSocket _socket;
@@ -50,7 +37,6 @@ namespace PocAppairageUi
 
             _numeroSerie = CodePin + Constructeur + AdresseMac;
             NoSerieConnecteur.Text = _numeroSerie;
-
         }
 
         private async void TenterListage()
@@ -58,10 +44,10 @@ namespace PocAppairageUi
             try
             {
                 DisplayLine("Début du scan...");
-
-                var rfCommAqs = "System.Devices.DevObjectType:=5 AND System.Devices.AepService.ProtocolId:= \"{00030000-0000-1000-8000-00805F9B34FB}\"";
-                var BLEothAqs = "System.Devices.DevObjectType:=5 AND System.Devices.Aep.ProtocolId:=\"{BB7BB05E-5972-42B5-94FC-76EAA7084D49}\"";
-                var BToothAqs1 = "System.Devices.DevObjectType:=5";
+                
+                //var rfCommAqs = "System.Devices.DevObjectType:=5 AND System.Devices.AepService.ProtocolId:= \"{00030000-0000-1000-8000-00805F9B34FB}\"";
+                //var BLEothAqs = "System.Devices.DevObjectType:=5 AND System.Devices.Aep.ProtocolId:=\"{BB7BB05E-5972-42B5-94FC-76EAA7084D49}\"";
+                //var BToothAqs1 = "System.Devices.DevObjectType:=5";
 
                 //var deviceswatcher = DeviceInformation.CreateWatcher(BToothAqs1);
                 //deviceswatcher.Added += DeviceswatcherOnAdded;
@@ -75,22 +61,20 @@ namespace PocAppairageUi
                 //AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"
                 //AND System.Devices.Aep.ProtocolId:=\"{E0CBF06C-CD8B-4647-BB8A-263B43F0F974}\"
 
-                var targetMac = ulong.Parse(AdresseMac, System.Globalization.NumberStyles.HexNumber);
+                //var targetMac = ulong.Parse(AdresseMac, System.Globalization.NumberStyles.HexNumber);
 
-                var serialPort = "System.DeviceInterface.Bluetooth.ServiceGuid:=\"{00001101-0000-1000-8000-00805F9B34FB}\" AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"0007802277FF\"";
-                var connecteurFilter = "System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"";
+                //var serialPort = string.Format("System.DeviceInterface.Bluetooth.ServiceGuid:=\"{{00001101-0000-1000-8000-00805F9B34FB}}\" AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"{0}\"", AdresseMac);
+                //var connecteurFilter = "System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"";
 
-
-
-                var selector1 = BluetoothDevice.GetDeviceSelectorFromDeviceName("Linky-C");
-                var devices1 = await DeviceInformation.FindAllAsync(selector1);
-                if (!devices1.Any())
+                var selectorFromDeviceName = BluetoothDevice.GetDeviceSelectorFromDeviceName("Linky-C");
+                var devices = await DeviceInformation.FindAllAsync(selectorFromDeviceName);
+                if (!devices.Any())
                 {
                     DisplayLine("Pas de connecteur trouvé");
                 }
                 else
                 {
-                    foreach (var device in devices1)
+                    foreach (var device in devices.Where(d => d.IsCorrectMacAddress(AdresseMac)))
                     {
                         DisplayLine("Trouvé : " + device.Name + " (type : " + device.Kind.ToString() + ")");
 
@@ -115,7 +99,7 @@ namespace PocAppairageUi
                 var customPairing = device.Pairing.Custom;
 
                 customPairing.PairingRequested += PairingRequestedHandler;
-                var result = await customPairing.PairAsync(DevicePairingKinds.ProvidePin, DevicePairingProtectionLevel.None);
+                var result = await customPairing.PairAsync(DevicePairingKinds.ProvidePin, DevicePairingProtectionLevel.EncryptionAndAuthentication);
                 customPairing.PairingRequested -= PairingRequestedHandler;
 
                 DisplayLine("Résultat de l'appairage : " + result.Status);
@@ -232,7 +216,7 @@ namespace PocAppairageUi
             DisplayLine("Fini");
         }
 
-        private async void PairingRequestedHandler(DeviceInformationCustomPairing sender, DevicePairingRequestedEventArgs args)
+        private void PairingRequestedHandler(DeviceInformationCustomPairing sender, DevicePairingRequestedEventArgs args)
         {
             switch (args.PairingKind)
             {
@@ -248,25 +232,16 @@ namespace PocAppairageUi
                     // on the target bluetoothDeviceInfo. We automatically except here since we can't really "cancel" the operation
                     // from this side.
                     args.Accept();
-
-                    // No need for a deferral since we don't need any decision from the user
-                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-                    {
-                        DisplayLine("Please enter this PIN on the bluetoothDeviceInfo you are pairing with: " + args.Pin);
-
-                    });
+                    DisplayLine("Please enter this PIN on the bluetoothDeviceInfo you are pairing with: " + args.Pin);
                     break;
 
                 case DevicePairingKinds.ProvidePin:
                     // A PIN may be shown on the target bluetoothDeviceInfo and the user needs to enter the matching PIN on 
                     // this Windows bluetoothDeviceInfo. Get a deferral so we can perform the async request to the user.
-                    var collectPinDeferral = args.GetDeferral();
-
-                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
-                    {
-                        DisplayLine("ProvidePin");
-                        args.Accept(CodePin);
-                    });
+                    var deferral = args.GetDeferral();
+                    DisplayLine("ProvidePin");
+                    args.Accept(CodePin);
+                    deferral.Complete();
                     break;
 
                 case DevicePairingKinds.ConfirmPinMatch:
@@ -274,13 +249,9 @@ namespace PocAppairageUi
                     // on the target bluetoothDeviceInfo. Response comes back and we set it on the PinComparePairingRequestedData
                     // then complete the deferral.
                     var displayMessageDeferral = args.GetDeferral();
-
-                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
-                    {
-                        DisplayLine("ConfirmPinMatch");
-                        args.Accept();
-                        displayMessageDeferral.Complete();
-                    });
+                    DisplayLine("ConfirmPinMatch");
+                    args.Accept();
+                    displayMessageDeferral.Complete();
                     break;
             }
         }
@@ -297,13 +268,26 @@ namespace PocAppairageUi
         {
             Task.Run(() => TenterListage());
         }
+
         private void CommuniquerOnClick(object sender, RoutedEventArgs e)
         {
             Task.Run(() => TenterCommuniquage());
         }
+
         private void DisplayLine(string message)
         {
             Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => Console.Text += message + "\n");
+        }
+    }
+
+    internal static class Extensions
+    {
+        internal static bool IsCorrectMacAddress(this DeviceInformation deviceInformation, string macAddress)
+        {
+            var mac = macAddress.ToUpper().Replace(":", "");
+            var id = deviceInformation.Id.ToUpper().Replace(":", "");
+
+            return id.Contains(mac);
         }
     }
 }
