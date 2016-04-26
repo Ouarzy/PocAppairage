@@ -19,9 +19,9 @@ namespace PocAppairageUi
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private const string CodePin = "L04-UJEX1NPXMUKG";
+        private const string CodePin = "AY85QK-JWICUBIT4";
         private const string Constructeur = "2A";
-        private const string AdresseMac = "000780227849";
+        private const string AdresseMac = "00078022780B";
         private string _numeroSerie;
 
         private StreamSocket _socket;
@@ -29,7 +29,7 @@ namespace PocAppairageUi
         private DataReader dataReaderObject;
         private CancellationTokenSource ReadCancellationTokenSource;
 
-        private DeviceInformation deviceInfo;
+        private DeviceInformation sharedDeviceInfo;
 
         public MainPage()
         {
@@ -39,32 +39,12 @@ namespace PocAppairageUi
             NoSerieConnecteur.Text = _numeroSerie;
         }
 
-        private async void TenterListage()
+        private async Task<DeviceInformation> TenterListage()
         {
+            DeviceInformation deviceInfo = null;
             try
             {
                 DisplayLine("Début du scan...");
-                
-                //var rfCommAqs = "System.Devices.DevObjectType:=5 AND System.Devices.AepService.ProtocolId:= \"{00030000-0000-1000-8000-00805F9B34FB}\"";
-                //var BLEothAqs = "System.Devices.DevObjectType:=5 AND System.Devices.Aep.ProtocolId:=\"{BB7BB05E-5972-42B5-94FC-76EAA7084D49}\"";
-                //var BToothAqs1 = "System.Devices.DevObjectType:=5";
-
-                //var deviceswatcher = DeviceInformation.CreateWatcher(BToothAqs1);
-                //deviceswatcher.Added += DeviceswatcherOnAdded;
-                //deviceswatcher.Updated += DeviceswatcherOnUpdated;
-                //deviceswatcher.Stopped += DeviceswatcherOnStopped;
-                //deviceswatcher.EnumerationCompleted += DeviceswatcherOnEnumerationCompleted;
-                //deviceswatcher.Start();
-
-                //target MAC in decimal, this number corresponds to my bluetoothDeviceInfo (00:07:80:4b:29:ed)
-
-                //AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"
-                //AND System.Devices.Aep.ProtocolId:=\"{E0CBF06C-CD8B-4647-BB8A-263B43F0F974}\"
-
-                //var targetMac = ulong.Parse(AdresseMac, System.Globalization.NumberStyles.HexNumber);
-
-                //var serialPort = string.Format("System.DeviceInterface.Bluetooth.ServiceGuid:=\"{{00001101-0000-1000-8000-00805F9B34FB}}\" AND System.DeviceInterface.Bluetooth.DeviceAddress:=\"{0}\"", AdresseMac);
-                //var connecteurFilter = "System.DeviceInterface.Bluetooth.DeviceAddress:=\"6002927E3645\"";
 
                 var selectorFromDeviceName = BluetoothDevice.GetDeviceSelectorFromDeviceName("Linky-C");
                 var devices = await DeviceInformation.FindAllAsync(selectorFromDeviceName);
@@ -88,6 +68,7 @@ namespace PocAppairageUi
             {
                 DisplayLine("Erreur lors du scan : " + ex.Message);
             }
+            return deviceInfo;
         }
 
         private async void TenterAppairage(DeviceInformation device)
@@ -114,7 +95,7 @@ namespace PocAppairageUi
         {
             try
             {
-                DisplayLine("Série : ");
+                DisplayLine("Retrouver appairage courant...");
                 var selector = RfcommDeviceService.GetDeviceSelector(RfcommServiceId.SerialPort);
                 foreach (DeviceInformation serialDeviceInfoBoucle in await DeviceInformation.FindAllAsync(selector))
                 {
@@ -258,9 +239,9 @@ namespace PocAppairageUi
 
         private void AppairerOnClick(object sender, RoutedEventArgs e)
         {
-            if (deviceInfo != null)
+            if (sharedDeviceInfo != null)
             {
-                Task.Run(() => TenterAppairage(deviceInfo));
+                Task.Run(() => TenterAppairage(sharedDeviceInfo));
             }
         }
 
